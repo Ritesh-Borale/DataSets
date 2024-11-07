@@ -1,0 +1,44 @@
+import numpy as py
+import pandas as pd
+import tensorflow as tf
+from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers, models
+import matplotlib.pyplot as plt
+
+PATH_TO_DATA = 'http://storage.googleapis.com/download.tensorflow.org/data/ecg.csv'
+data = pd.read_csv(PATH_TO_DATA, header = None)
+data.head()
+
+scaler = StandardScaler()
+
+X = scaler.fit_transform(data.values)
+y=X
+X_train, X_test, _, _ = train_test_split(X,X, test_size = 0.2, random_state = 42)
+input_dim = X_train.shape[1]
+print(input_dim)
+
+encoder = models.Sequential([
+    layers.Input(shape=(input_dim,)),
+    layers.Dense(32, activation = "relu"),
+    layers.Dense(16, activation= "relu"),
+    layers.Dense(8, activation = "relu"),
+])
+
+decoder = models.Sequential([
+    layers.Input(shape=(8,)),
+    layers.Dense(16, activation = "relu"),
+    layers.Dense(32, activation= "relu"),
+    layers.Dense(input_dim, activation = "linear")
+])
+
+autoencoder = models.Sequential([encoder, decoder])
+autoencoder.compile(optimizer = "adam", loss = "mean_squared_error", metrics=["accuracy"])
+autoencoder.fit(X_train, X_train, epochs = 10,batch_size=32, validation_split=0.2)
+
+y_pred = autoencoder.predict(X_test)
+mse = py.mean(py.power(X_test - y_pred,2), axis=1)
+threshold = py.percentile(mse,95)
+anamolies = mse > threshold
+num_anamolies = py.sum(anamolies)
+print(num_anamolies)
